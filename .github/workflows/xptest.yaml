@@ -1,0 +1,45 @@
+name: Test Hello World on Windows XP in Docker
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install MinGW
+        run: |
+          sudo apt update
+          sudo apt install -y mingw-w64
+
+      - name: Create hello.c
+        run: |
+          echo '#include <stdio.h>' > hello.c
+          echo 'int main() { printf("Hello, Windows XP!\\n"); return 0; }' >> hello.c
+
+      - name: Compile hello.c with MinGW
+        run: |
+          x86_64-w64-mingw32-gcc -o hello.exe hello.c
+
+      - name: Pull and Run Windows XP Docker Container
+        run: |
+          docker pull dockur/windows:xp
+          container_id=$(docker run -d dockur/windows:xp)
+          echo "CONTAINER_ID=$container_id" >> $GITHUB_ENV
+
+      - name: Copy hello.exe to the Windows XP container
+        run: |
+          docker cp hello.exe $CONTAINER_ID:C:/hello.exe
+
+      - name: Run hello.exe in the Windows XP container
+        run: |
+          docker exec $CONTAINER_ID C:/hello.exe > output.txt
+          cat output.txt
+
+      - name: Upload Output as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: hello-output
+          path: output.txt
