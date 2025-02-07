@@ -1,0 +1,57 @@
+name: Windows XP QEMU Test
+
+on: [push, pull_request]
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies (QEMU & MinGW)
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-kvm qemu-utils qemu-system-x86 mingw-w64 openssh-client
+
+      - name: Create hello.c
+        run: |
+          echo '#include <stdio.h>' > hello.c
+          echo 'int main() { printf("Hello, Windows XP!\\n"); return 0; }' >> hello.c
+
+      - name: Compile hello.c with MinGW
+        run: |
+          x86_64-w64-mingw32-gcc -o hello.exe hello.c
+
+      - name: Download or Use Windows XP Image
+        run: |
+          # If you have a Windows XP installation ISO:
+          # wget -O winxp.iso "https://example.com/windows-xp.iso"
+
+          # Use a pre-installed Windows XP QCOW2 image
+          wget -O windows-xp.qcow2 "https://example.com/preinstalled-winxp.qcow2"
+
+      - name: Start Windows XP in QEMU
+        run: |
+          qemu-system-i386 -m 512M -drive file=windows-xp.qcow2,format=qcow2 \
+            -net nic,model=rtl8139 -net user,hostfwd=tcp::2222-:22 \
+            -vga cirrus -boot c -display none -daemonize
+
+          # Wait for XP to boot
+          sleep 60
+
+      - name: Copy hello.exe to Windows XP via SCP
+        run: |
+          # Assuming Windows XP has OpenSSH server installed for SCP
+          scp -P 2222 hello.exe user@localhost:C:/hello.exe
+
+      - name: Run hello.exe in Windows XP via SSH
+        run: |
+          ssh -p 2222 user@localhost "C:/hello.exe" > output.txt
+          cat output.txt
+
+      - name: Upload Output as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello-output
+          path: output.txt
